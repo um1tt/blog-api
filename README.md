@@ -1,2 +1,2 @@
 # advansedjango
-django
+django by Mannapov Aibek.
