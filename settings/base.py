@@ -1,4 +1,6 @@
 from settings.conf import BASE_DIR, BLOG_ALLOWED_HOSTS, BLOG_DEBUG, BLOG_REDIS_URL, BLOG_SECRET_KEY
+from pathlib import Path
+from django.utils.translation import gettext_lazy as _
 
 APP_USERS = "apps.users.apps.UsersConfig"
 APP_BLOG = "apps.blog.apps.BlogConfig"
@@ -15,13 +17,15 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    APP_USERS,
-    APP_BLOG,
+    "drf_spectacular",
+    "apps.users",
+    "apps.blog",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "apps.blog.middleware.UserLocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -36,7 +40,7 @@ ASGI_APPLICATION = "settings.asgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -63,11 +67,23 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
+
+LANGUAGES = [
+    ("en", _("English")),
+    ("ru", _("Russian")),
+    ("kk", _("Kazakh")),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / "locale",
+]
+
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -81,7 +97,25 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Blog API",
+    "DESCRIPTION": "Homework 2 API documentation",
+    "VERSION": "2.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "Auth", "description": "Authentication and profile preference endpoints"},
+        {"name": "Posts", "description": "Posts and related actions"},
+        {"name": "Comments", "description": "Comment endpoints"},
+        {"name": "Stats", "description": "Statistics and async external data"},
+    ],
+}
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@example.com"
+
 
 
 CACHES = {
