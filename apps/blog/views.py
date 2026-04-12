@@ -1,5 +1,11 @@
 import asyncio
+import json
+from apps.notifications.tasks import process_new_comment
+from apps.blog.tasks import invalidate_posts_cache_task
 
+import redis.asyncio as aioredis
+from django.conf import settings
+from django.http import StreamingHttpResponse
 import httpx
 from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
@@ -132,7 +138,8 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         post = serializer.save()
-        invalidate_posts_cache()
+        process_new_comment.delay(comment.id)
+        invalidate_posts_cache_task.delay()
         response_serializer = PostListSerializer(post, context={"request": request})
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -146,14 +153,14 @@ class PostViewSet(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         post = serializer.save()
-        invalidate_posts_cache()
+        invalidate_posts_cache_task.delay()
         response_serializer = PostListSerializer(post, context={"request": request})
         return Response(response_serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.delete()
-        invalidate_posts_cache()
+        invalidate_posts_cache_task.delay()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -300,3 +307,27 @@ class StatsViewSet(viewsets.ViewSet):
             "current_time": time_data["dateTime"],
         }
         return Response(payload)
+
+async def post_stream_view(request):
+    redis_client = aioredis.from_url(settings.BLOG_REDIS_URL, decode_responses=True)
+    pubsub = redis_client.pubsub()
+    await pubsub.subscribe("posts_published")
+
+    async def event_stream():
+        try: 
+            while True:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if message and message["type"] == "message":
+                    yield f"data: {message['data']}\n\n"
+                await asyncio.sleep(0.1)
+        finally:
+            await pubsub.unsubscribe("posts_published")
+            await pubsub.close()
+            await redis_client.close()
+
+    response = StreamingHttpResponse(
+        streaming_content=event_stream(),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache"
+    return response

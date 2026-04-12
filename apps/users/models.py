@@ -37,11 +37,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         default="UTC",
     )
 
-
     objects = UserManager()
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
+    class Meta:
+        app_label = "users"
+
     def __str__(self) -> str:
-        return self.email 
+        return self.email

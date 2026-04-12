@@ -1,9 +1,8 @@
 from __future__ import annotations
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from apps.users.tasks import send_welcome_email
 
 import logging
-
-from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _, override
@@ -12,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger("users")
 
-User = get_user_model()
+from .models import User
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -45,30 +44,14 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": "Passwords do not match."})
         return attrs
     
-    def create(self, validate_data): 
-        logger.info("Registration attempt for email: %s", validate_data.get("email"))
-        validate_data.pop("password2", None)
-        password = validate_data.pop("password")
+    def create(self, validated_data):
+        logger.info("Registration attempt for email: %s", validated_data.get("email"))
+        validated_data.pop("password2", None)
+        password = validated_data.pop("password")
 
-        user = User.objects.create_user(password=password, **validate_data)
+        user = User.objects.create_user(password=password, **validated_data)
+        send_welcome_email.delay(user.email)
         logger.info("User registered: %s", user.email)
-        with override(user.preferred_language):
-            subject = render_to_string(
-                "emails/welcome/subject.txt",
-                {"user": user},
-            ).strip()
-            body = render_to_string(
-                "emails/welcome.body.txt",
-                {"user": user},
-            )
-            send_mail (
-                subject=subject,
-                message=body,
-                from_email=None,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
-
         return user
     
 class LanguageUpdateSerializer(serializers.Serializer):

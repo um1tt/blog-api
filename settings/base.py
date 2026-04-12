@@ -1,6 +1,7 @@
 from settings.conf import BASE_DIR, BLOG_ALLOWED_HOSTS, BLOG_DEBUG, BLOG_REDIS_URL, BLOG_SECRET_KEY
 from pathlib import Path
 from django.utils.translation import gettext_lazy as _
+from decouple import config
 
 APP_USERS = "apps.users.apps.UsersConfig"
 APP_BLOG = "apps.blog.apps.BlogConfig"
@@ -10,6 +11,8 @@ DEBUG = BLOG_DEBUG
 ALLOWED_HOSTS = BLOG_ALLOWED_HOSTS
 
 INSTALLED_APPS = [
+    "daphne",
+    "channels",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -20,6 +23,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.users",
     "apps.blog",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -37,6 +41,15 @@ ROOT_URLCONF = "settings.urls"
 WSGI_APPLICATION = "settings.wsgi.application"
 ASGI_APPLICATION = "settings.asgi.application"
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [config("BLOG_REDIS_URL", default="redis://127.0.0.1:6379/0")],
+        },
+    },
+}
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -51,6 +64,12 @@ TEMPLATES = [
         },
     }
 ]
+
+BLOG_REDIS_URL = config("BLOG_REDIS_URL", default="redis://127.0.0.1:6379/0")
+BLOG_CELERY_BROKER_URL = config("BLOG_CELERY_BROKER_URL", default="redis://127.0.0.1:6379/1")
+BLOG_FLOWER_USER = config("BLOG_FLOWER_USER", default="admin")
+BLOG_FLOWER_PASSWORD = config("BLOG_FLOWER_PASSWORD", default="changeme")
+BLOG_SEED_DB = config("BLOG_SEED_DB", default=False, cast=bool)
 
 DATABASES = {
     "default": {
@@ -201,3 +220,10 @@ LOGGING = {
         },
     },
 }
+
+CELERY_BROKER_URL = config("BLOG_CELERY_BROKER_URL", default="redis://127.0.0.1:6379/1")
+CELERY_RESULT_BACKEND = config("BLOG_CELERY_BROKER_URL", default="redis://127.0.0.1:6379/1")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE

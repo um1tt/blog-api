@@ -37,8 +37,9 @@ class Tag(models.Model):
 
 
 class PostStatus(models.TextChoices):
-    DRAFT = "draft", _("Draft")
-    PUBLISHED = "published", _("Published")
+    DRAFT = "draft", "Draft"
+    PUBLISHED = "published", "Published"
+    SCHEDULED = "scheduled", "Scheduled"
 
 
 class Post(models.Model):
@@ -73,6 +74,7 @@ class Post(models.Model):
     )
     created_at = models.DateTimeField(_("created at"), auto_now_add=True)
     updated_at = models.DateTimeField(_("updated at"), auto_now=True)
+    publish_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = _("post")
